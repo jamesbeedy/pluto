@@ -20,6 +20,7 @@ from urllib import request
 
 from craft_cli import BaseCommand, emit
 
+from pluto.addons.apptainer import provision_apptainer
 from pluto.addons.identity import provision_identity
 from pluto.addons.vantage import provision_vantage
 from pluto.drivers import Cluster
@@ -42,6 +43,7 @@ def _parse_constraints(constraints: str) -> Dict[str, Any]:
 async def _bootstrap(
     name: str,
     num_compute: int,
+    include_apptainer: bool,
     include_identity: bool,
     compute_constraint: Optional[Dict[str, str]] = None,
     control_constraint: Optional[Dict[str, str]] = None,
@@ -52,6 +54,7 @@ async def _bootstrap(
     Args:
         name: Name to use for the new HPC cluster.
         num_compute: Number of compute nodes to deploy.
+        include_apptainer: Whether or not to include the apptainer package on the compute node.
         include_identity: Whether or not to include identity services.
         compute_constraint: Constraints to apply to compute plane nodes.
         control_constraint: Constraints to apply to control plane nodes.
@@ -168,6 +171,10 @@ async def _bootstrap(
         await cluster.get_app("home-nfs-proxy").set_config({"endpoint": endpoint})
         await cluster.integrate("home-nfs-proxy:nfs-share", "home:nfs-share")
 
+        if include_apptainer:
+            emit.progress("Provisioning apptainer...")
+            await provision_apptainer(cluster)
+
         if include_identity:
             emit.progress("Provisioning identity services...")
             await provision_identity(cluster, control_constraint)
@@ -216,6 +223,11 @@ class BootstrapCommand(BaseCommand):
             help="Constraints to pass to control plane nodes.",
         )
         parser.add_argument(
+            "--include-apptainer",
+            action="store_true",
+            help="Include the apptainer package on compute nodes.",
+        )
+        parser.add_argument(
             "--include-identity",
             action="store_true",
             help="Include glauth and sssd identity management services.",
@@ -250,6 +262,7 @@ class BootstrapCommand(BaseCommand):
 
         name = parsed_args.name
         num_compute = parsed_args.compute
+        include_apptainer = parsed_args.include_apptainer
         include_identity = parsed_args.include_identity
         emit.message(f"Deploying cluster {name}. This will take several minutes...")
         loop = asyncio.get_event_loop()
@@ -257,6 +270,7 @@ class BootstrapCommand(BaseCommand):
             _bootstrap(
                 name,
                 num_compute,
+                include_apptainer,
                 include_identity,
                 compute_constraints,
                 control_constraints,
