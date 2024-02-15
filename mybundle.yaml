@@ -1,0 +1,130 @@
+series: jammy
+applications:
+  apptainer:
+    charm: apptainer
+    channel: edge
+    revision: 1
+  home:
+    charm: nfs-client
+    channel: edge
+    revision: 7
+    options:
+      mountpoint: /home
+  home-nfs-proxy:
+    charm: nfs-server-proxy
+    channel: edge
+    revision: 7
+    num_units: 1
+    to:
+    - "2"
+    options:
+      endpoint: nfs://10.240.222.140/home
+    constraints: arch=amd64
+  jobbergate-agent:
+    charm: jobbergate-agent
+    channel: edge
+    revision: 1
+    options:
+      base-api-url: https://apis.vantagehpc.io
+      oidc-audience: https://apis.vantagehpc.io
+      oidc-client-id: juju1-fc8b1039-faa7-47b1-967a-c1a55c418740
+      oidc-client-secret: jQbLOhfi1tWppMC9swTFLn3MXQbsppdxEPVV-_59wPQ
+      oidc-domain: auth.vantagehpc.io/realms/vantage
+      slurm-restd-version: v0.0.39
+      slurmrestd-jwt-key-path: /var/spool/slurmctld/jwt_hs256.key
+      x-slurm-user-name: ubuntu
+  mysql:
+    charm: mysql
+    channel: 8.0/edge
+    revision: 208
+    num_units: 1
+    to:
+    - "0"
+    constraints: arch=amd64
+    storage:
+      database: rootfs,1,1024M
+  nfs-server:
+    charm: ubuntu
+    channel: latest/stable
+    revision: 24
+    num_units: 1
+    to:
+    - "6"
+    constraints: arch=amd64
+    storage:
+      block: loop,100M
+      files: rootfs,100M
+  slurmctld:
+    charm: slurmctld
+    channel: edge
+    revision: 60
+    num_units: 1
+    to:
+    - "1"
+    constraints: arch=amd64
+  slurmd:
+    charm: slurmd
+    channel: edge
+    revision: 81
+    resources:
+      nhc: 1
+    num_units: 1
+    to:
+    - "4"
+    constraints: arch=amd64
+  slurmdbd:
+    charm: slurmdbd
+    channel: edge
+    revision: 51
+    num_units: 1
+    to:
+    - "5"
+    constraints: arch=amd64
+  slurmdbd-mysql-router:
+    charm: mysql-router
+    channel: dpe/edge
+    revision: 136
+  slurmrestd:
+    charm: slurmrestd
+    channel: edge
+    revision: 54
+    num_units: 1
+    to:
+    - "3"
+    constraints: arch=amd64
+machines:
+  "0":
+    constraints: arch=amd64
+  "1":
+    constraints: arch=amd64
+  "2":
+    constraints: arch=amd64
+  "3":
+    constraints: arch=amd64
+  "4":
+    constraints: arch=amd64
+  "5":
+    constraints: arch=amd64
+  "6":
+    constraints: arch=amd64
+relations:
+- - slurmd:slurmd
+  - slurmctld:slurmd
+- - slurmrestd:slurmrestd
+  - slurmctld:slurmrestd
+- - slurmdbd:slurmdbd
+  - slurmctld:slurmdbd
+- - slurmd:juju-info
+  - home:juju-info
+- - slurmctld:juju-info
+  - home:juju-info
+- - slurmdbd-mysql-router:backend-database
+  - mysql:database
+- - slurmdbd:database
+  - slurmdbd-mysql-router:database
+- - home-nfs-proxy:nfs-share
+  - home:nfs-share
+- - slurmd:juju-info
+  - apptainer:juju-info
+- - slurmrestd:juju-info
+  - jobbergate-agent:juju-info

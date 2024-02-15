@@ -74,6 +74,10 @@ async def _bootstrap(
                     num_units=1,
                     base="ubuntu@22.04",
                     constraints=control_constraint,
+                    config={
+                        "cluster-name": name,
+                        "default-partition": "slurmd",
+                    },
                 ),
                 cluster.deploy(
                     "slurmd",
